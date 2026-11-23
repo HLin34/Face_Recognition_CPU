@@ -1,10 +1,21 @@
-# CPU 人臉辨識
+# CPU Face Recognition
 
-使用 OpenCV Zoo 的 YuNet 偵測人臉、SFace 對齊並擷取特徵，再用餘弦相似度比對本機已註冊的人臉。模型下載完成後，全程可離線執行。支援照片註冊、照片辨識與單人攝影機辨識。
+A local face recognition demo for still images and a webcam. It uses OpenCV’s CPU backend to detect faces, extract embeddings, and match them against locally enrolled identities.
 
-## 安裝
+## Features
 
-從專案根目錄建立並啟用獨立的 Conda 環境，再把依賴安裝到該環境。
+- Enroll or update an identity from a reference photo.
+- Identify a face in a still image using cosine similarity.
+- Recognize one person at a time from a webcam. A match must persist across consecutive frames before the label is displayed.
+- Run offline after downloading the models. The app stores enrollment labels and embeddings locally and does not record webcam footage.
+
+## How it works
+
+**YuNet** detects the face and its landmarks. **SFace** uses those landmarks to align the face and generate a 128-dimensional embedding. The app compares the embedding with the enrolled templates and returns the best match if its cosine similarity meets the configured threshold.
+
+## Setup
+
+From the project directory, create a dedicated Conda environment and install the dependencies.
 
 ```sh
 conda create -n face-recognition-cpu python=3.13 pip
@@ -12,28 +23,32 @@ conda activate face-recognition-cpu
 python -m pip install -r requirements.txt
 ```
 
-建立 `models/` 資料夾，從 OpenCV Zoo 的檔案頁下載下列兩個 ONNX 檔。使用頁面上的下載按鈕取得實際模型檔。
+Create a `models/` directory and download the two ONNX files from OpenCV Zoo using the download button on each file page.
 
-| 模型檔 | 上游授權 |
+| Model | License |
 | --- | --- |
-| [face_detection_yunet_2023mar.onnx](https://github.com/opencv/opencv_zoo/blob/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx) | [MIT](https://github.com/opencv/opencv_zoo/blob/main/models/face_detection_yunet/LICENSE) |
-| [face_recognition_sface_2021dec.onnx](https://github.com/opencv/opencv_zoo/blob/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx) | [Apache-2.0](https://github.com/opencv/opencv_zoo/blob/main/models/face_recognition_sface/LICENSE) |
+| [YuNet — `face_detection_yunet_2023mar.onnx`](https://github.com/opencv/opencv_zoo/blob/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx) | MIT |
+| [SFace — `face_recognition_sface_2021dec.onnx`](https://github.com/opencv/opencv_zoo/blob/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx) | Apache-2.0 |
 
-## 使用方式
+## Usage
 
-將經本人同意使用的照片放在本機的 `local-data/`。請在已啟用的專案環境中執行下列指令。
+Place photos you have permission to use in `local-data/`. Use photos with one clearly visible face.
 
 ```sh
+# Enroll a person from a reference photo
 python face_recognition.py enroll person01 local-data/reference.jpg
+
+# Identify a person in another photo
 python face_recognition.py identify local-data/probe.jpg
+
+# Start live recognition
 python face_recognition.py live --camera 0 --stable-frames 5
 ```
 
-- 註冊及照片辨識各需偵測到一張臉。標籤可用英文字母、數字、連字號與底線，須以英數開頭，長度最多 40 字元。同名標籤會更新本機向量。刪除 `local-data/sface-v1/id-person01.npy` 即可移除該筆註冊。
-- 攝影機模式需要桌面視窗及攝影機權限。按 `q` 或 `Esc` 結束。連續達到指定幀數才顯示身分，遇到未匹配、無臉或多張臉時重新計數。
-- `identify` 和 `live` 可用 `--threshold` 調整餘弦相似度門檻。預設 `0.363` 取自 OpenCV 教學的 LFW 評估。請依實際光線、攝影機與測試結果調整。此展示未實作活體偵測。分數是相似度，無法直接當作身分正確率。 [OpenCV 人臉辨識教學](https://docs.opencv.org/4.x/d0/dd4/tutorial_dnn_face.html)
-- 可在子指令前以 `--models` 和 `--database` 指定本機目錄。若曾使用其他人臉模型，請用 SFace 重新註冊。不同模型產生的向量與分數門檻各自適用於原本的模型。
+Press `q` or `Esc` to exit webcam mode. Use `--threshold` with `identify` or `live` to adjust the match threshold. The default of `0.363` comes from OpenCV’s LFW benchmark example. Suitable thresholds depend on your camera, lighting, and test data.
 
-## 發布與資料
+## Verification and limitations
 
-預設工作目錄中的模型、照片和人臉向量均由 Git 忽略。程式只將註冊向量與標籤儲存在本機，攝影機畫面不寫入磁碟。請將自訂的資料目錄放在 Git 倉庫外，並避免讓照片、影片、特徵向量或可辨識身分的標籤進入 Git 紀錄。公開倉庫可只提交本程式、README、依賴清單和 Git 忽略設定。上表授權適用於各自的上游模型。本專案的程式授權由發佈者確認權利後另行指定。
+Still-image enrollment and matching were tested on Windows. The webcam’s consecutive-frame logic was tested with simulated frames. Physical webcam operation has not been verified.
+
+This demo does not perform liveness detection. Keep reference photos and face embeddings out of version control.
